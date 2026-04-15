@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #111316;
+  --color-surface: #111316;
+  --color-surface-dim: #111316;
+  --color-surface-bright: #37393d;
+  --color-surface-container-lowest: #0c0e11;
+  --color-surface-container-low: #1a1c1f;
+  --color-surface-container: #1e2023;
+  --color-surface-container-high: #282a2d;
+  --color-surface-container-highest: #333538;
+  --color-surface-variant: #333538;
+  --color-on-background: #e2e2e6;
+  --color-on-surface: #e2e2e6;
+  --color-on-surface-variant: #bbc9cf;
+  --color-outline: #859398;
+  --color-outline-variant: #3c494e;
+  --color-primary: #a8e8ff;
+  --color-on-primary: #003642;
+  --color-primary-container: #00d4ff;
+  --color-on-primary-container: #00586b;
+  --color-primary-fixed: #b4ebff;
+  --color-primary-fixed-dim: #3cd7ff;
+  --color-on-primary-fixed: #001f27;
+  --color-on-primary-fixed-variant: #004e5f;
+  --color-secondary: #ffb77d;
+  --color-on-secondary: #4d2600;
+  --color-secondary-container: #fd8b00;
+  --color-on-secondary-container: #603100;
+  --color-secondary-fixed: #ffdcc3;
+  --color-secondary-fixed-dim: #ffb77d;
+  --color-on-secondary-fixed: #2f1500;
+  --color-on-secondary-fixed-variant: #6e3900;
+  --color-tertiary: #ffd5d1;
+  --color-on-tertiary: #68000b;
+  --color-tertiary-container: #ffaea8;
+  --color-on-tertiary-container: #a40017;
+  --color-tertiary-fixed: #ffdad7;
+  --color-tertiary-fixed-dim: #ffb3ae;
+  --color-on-tertiary-fixed: #410004;
+  --color-on-tertiary-fixed-variant: #930014;
+  --color-error: #ffb4ab;
+  --color-on-error: #690005;
+  --color-error-container: #93000a;
+  --color-on-error-container: #ffdad6;
+  --color-inverse-surface: #e2e2e6;
+  --color-inverse-on-surface: #2f3034;
+  --color-inverse-primary: #00677e;
+  --color-surface-tint: #3cd7ff;
+
+  --font-family-headline: "Space Grotesk", sans-serif;
+  --font-family-body: "Inter", sans-serif;
+  --font-family-label: "Space Grotesk", sans-serif;
+  --font-family-mono: "Doto", monospace;
+
+  --radius-DEFAULT: 0.125rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.5rem;
+  --radius-full: 0.75rem;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+.mono-data { font-family: 'Doto', monospace; }
+.glass-panel {
+  background: rgba(30, 32, 35, 0.6);
+  backdrop-filter: blur(12px);
+}
