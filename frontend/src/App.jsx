@@ -364,7 +364,7 @@ export default function App() {
                         </div>
                       ))}
                       <button
-                        onClick={runDiagnosis}
+                        onClick={fetchLatestData}
                         disabled={isSyncing}
                         className={`w-full py-4 font-headline text-xs font-black tracking-[0.2em] uppercase transition-all text-slate-950 ${
                           isSyncing ? "bg-slate-600 text-slate-300" : "bg-cyan-400 hover:bg-cyan-300 hover:shadow-[0_0_20px_rgba(34,211,238,0.4)]"
