@@ -207,7 +207,7 @@ export default function App() {
           </nav>
           <div className="px-6 mb-6">
             <button
-              onClick={runDiagnosis}
+              onClick={fetchLatestData}
               disabled={isSyncing}
               className="w-full py-3 bg-cyan-400/10 border border-cyan-400/30 text-cyan-400 font-headline text-xs font-bold tracking-widest hover:bg-cyan-400 hover:text-slate-950 transition-all disabled:opacity-50"
             >
@@ -225,13 +225,13 @@ export default function App() {
               <section className="grid grid-cols-1 xl:grid-cols-4 gap-6">
                 <div className="xl:col-span-3 space-y-8">
 
-                  {/* QR Scan Detection Banner */}
-                  {hasQRParams && (
+                  {/* Data Live Feed Banner */}
+                  {status === "WAITING_FOR_SENSOR" && (
                     <div className="p-3 bg-cyan-950/60 border border-cyan-400/40 flex items-center gap-3">
-                      <span className="material-symbols-outlined text-cyan-400 text-base" style={{ fontVariationSettings: "'FILL' 1" }}>qr_code_scanner</span>
+                      <span className="material-symbols-outlined text-cyan-400 text-base animate-pulse" style={{ fontVariationSettings: "'FILL' 1" }}>sensors</span>
                       <div>
-                        <p className="text-cyan-300 text-xs font-mono font-bold tracking-widest uppercase">QR Scan Detected</p>
-                        <p className="text-cyan-500 text-[10px] font-mono mt-0.5">Sensor data loaded from ESP32. AI diagnosis running automatically...</p>
+                        <p className="text-cyan-300 text-xs font-mono font-bold tracking-widest uppercase">Waiting for ESP32 Link</p>
+                        <p className="text-cyan-500 text-[10px] font-mono mt-0.5">Polling backend for live vibration telemetry...</p>
                       </div>
                     </div>
                   )}
