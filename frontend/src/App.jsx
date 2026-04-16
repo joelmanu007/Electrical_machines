@@ -1,12 +1,18 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 
 const MAX_HISTORY = 50;
 
 export default function App() {
-  const [rms, setRms] = useState(0.84);
-  const [peak, setPeak] = useState(1.25);
-  const [crest, setCrest] = useState(2.4);
-  const [kurtosis, setKurtosis] = useState(5.82);
+  // ── QR Code URL Parameter Parsing ──────────────────────────────
+  // When a user scans the ESP32-generated QR, the URL will contain:
+  // ?r=<rms>&p=<peak>&c=<crest>&k=<kurtosis>
+  const _qp = new URLSearchParams(window.location.search);
+  const hasQRParams = _qp.has('r') && _qp.has('p') && _qp.has('c') && _qp.has('k');
+
+  const [rms, setRms] = useState(() => hasQRParams ? parseFloat(_qp.get('r')) : 0.84);
+  const [peak, setPeak] = useState(() => hasQRParams ? parseFloat(_qp.get('p')) : 1.25);
+  const [crest, setCrest] = useState(() => hasQRParams ? parseFloat(_qp.get('c')) : 2.4);
+  const [kurtosis, setKurtosis] = useState(() => hasQRParams ? parseFloat(_qp.get('k')) : 5.82);
   const [status, setStatus] = useState("CRITICAL_FAULT");
   const [confidence, setConfidence] = useState(99.0);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -52,6 +58,16 @@ export default function App() {
       setIsSyncing(false);
     }
   }, [isSyncing, rms, peak, crest, kurtosis]);
+
+  // ── Auto-run diagnosis when opened via QR code scan ──────────────
+  const _autoRanDiagnosis = useRef(false);
+  useEffect(() => {
+    if (hasQRParams && !_autoRanDiagnosis.current) {
+      _autoRanDiagnosis.current = true;
+      const timer = setTimeout(runDiagnosis, 800); // Small delay for render
+      return () => clearTimeout(timer);
+    }
+  }, [runDiagnosis, hasQRParams]);
 
   const handleDecommission = () => {
     const msg = `Unit IND-4492-B scheduled for decommission at ${new Date().toLocaleString()}. Maintenance team notified.`;
@@ -214,6 +230,17 @@ export default function App() {
             {activeTab === "dashboard" && (
               <section className="grid grid-cols-1 xl:grid-cols-4 gap-6">
                 <div className="xl:col-span-3 space-y-8">
+
+                  {/* QR Scan Detection Banner */}
+                  {hasQRParams && (
+                    <div className="p-3 bg-cyan-950/60 border border-cyan-400/40 flex items-center gap-3">
+                      <span className="material-symbols-outlined text-cyan-400 text-base" style={{ fontVariationSettings: "'FILL' 1" }}>qr_code_scanner</span>
+                      <div>
+                        <p className="text-cyan-300 text-xs font-mono font-bold tracking-widest uppercase">QR Scan Detected</p>
+                        <p className="text-cyan-500 text-[10px] font-mono mt-0.5">Sensor data loaded from ESP32. AI diagnosis running automatically...</p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Verdict Banner */}
                   {status === "CRITICAL_FAULT" && (
