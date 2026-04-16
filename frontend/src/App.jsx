@@ -3,82 +3,65 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 const MAX_HISTORY = 50;
 
 export default function App() {
-  // ── QR Code URL Parameter Parsing ──────────────────────────────
-  // Support both classic query params and ultra-short hash format:
-  // Classic: ?r=<rms>&p=<p>&c=<c>&k=<k>
-  // Hash:    #<rms>,<p>,<c>,<k> (used for tiny QR codes)
-  const _qp = new URLSearchParams(window.location.search);
-  const hashVal = window.location.hash.replace('#', '');
-  const hashParts = hashVal.split(',');
-  const hasQRParams = _qp.has('r') || hashParts.length >= 4;
-
-  const getVal = (idx, qpName, defaultVal) => {
-    if (hashParts.length >= 4 && hashParts[idx] && hashParts[idx] !== "") {
-      return parseFloat(hashParts[idx]);
-    }
-    if (_qp.has(qpName)) return parseFloat(_qp.get(qpName));
-    return defaultVal;
-  };
-
-  const [rms, setRms] = useState(() => getVal(0, 'r', 0.84));
-  const [peak, setPeak] = useState(() => getVal(1, 'p', 1.25));
-  const [crest, setCrest] = useState(() => getVal(2, 'c', 2.4));
-  const [kurtosis, setKurtosis] = useState(() => getVal(3, 'k', 5.82));
-  const [status, setStatus] = useState("CRITICAL_FAULT");
-  const [confidence, setConfidence] = useState(99.0);
-  const [isSyncing, setIsSyncing] = useState(false);
+  // ── IOT WEB FETCH ARCHITECTURE ──────────────────────────────
+  // The ESP32 is now pushing data directly to the backend. We just fetch it!
+  const [rms, setRms] = useState(0.0);
+  const [peak, setPeak] = useState(0.0);
+  const [crest, setCrest] = useState(0.0);
+  const [kurtosis, setKurtosis] = useState(0.0);
+  const [status, setStatus] = useState("WAITING_FOR_SENSOR");
+  const [confidence, setConfidence] = useState(0.0);
+  const [isSyncing, setIsSyncing] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [scanHistory, setScanHistory] = useState([]);
   const [showSettings, setShowSettings] = useState(false);
   const [decommissionMsg, setDecommissionMsg] = useState(null);
 
-  const runDiagnosis = useCallback(async () => {
-    if (isSyncing) return;
+  const fetchLatestData = useCallback(async () => {
     setIsSyncing(true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/diagnose`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rms: parseFloat(rms),
-          peak: parseFloat(peak),
-          crest_factor: parseFloat(crest),
-          kurtosis: parseFloat(kurtosis),
-        }),
-      });
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/latest`);
       if (response.ok) {
         const data = await response.json();
+        
+        // Update dashboard state
+        setRms(data.rms);
+        setPeak(data.peak);
+        setCrest(data.crest_factor);
+        setKurtosis(data.kurtosis);
         setStatus(data.status);
         if (data.confidence !== undefined) setConfidence(data.confidence);
-        setScanHistory(prev => [{
-          timestamp: new Date().toISOString(),
-          rms: parseFloat(rms),
-          peak: parseFloat(peak),
-          crest_factor: parseFloat(crest),
-          kurtosis: parseFloat(kurtosis),
-          status: data.status,
-          confidence: data.confidence,
-        }, ...prev].slice(0, MAX_HISTORY));
-      } else {
-        setStatus("CONNECTION_ERROR");
+
+        // Append to local history
+        setScanHistory(prev => {
+          // Prevent exact duplicate history logging using a simple check
+          if (prev.length > 0 && prev[0].rms === data.rms && prev[0].status === data.status) {
+             return prev;
+          }
+          return [{
+            timestamp: new Date().toISOString(),
+            rms: data.rms,
+            peak: data.peak,
+            crest_factor: data.crest_factor,
+            kurtosis: data.kurtosis,
+            status: data.status,
+            confidence: data.confidence,
+          }, ...prev].slice(0, MAX_HISTORY);
+        });
       }
     } catch (error) {
-      console.error("Diagnosis failed:", error);
-      setStatus("CONNECTION_ERROR");
+      console.error("Failed to fetch latest sensor data:", error);
     } finally {
       setIsSyncing(false);
     }
-  }, [isSyncing, rms, peak, crest, kurtosis]);
+  }, []);
 
-  // ── Auto-run diagnosis when opened via QR code scan ──────────────
-  const _autoRanDiagnosis = useRef(false);
+  // Poll for new data every 3 seconds
   useEffect(() => {
-    if (hasQRParams && !_autoRanDiagnosis.current) {
-      _autoRanDiagnosis.current = true;
-      const timer = setTimeout(runDiagnosis, 800); // Small delay for render
-      return () => clearTimeout(timer);
-    }
-  }, [runDiagnosis, hasQRParams]);
+    fetchLatestData(); // initial fetch
+    const interval = setInterval(fetchLatestData, 3000);
+    return () => clearInterval(interval);
+  }, [fetchLatestData]);
 
   const handleDecommission = () => {
     const msg = `Unit IND-4492-B scheduled for decommission at ${new Date().toLocaleString()}. Maintenance team notified.`;

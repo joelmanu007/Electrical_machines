@@ -18,7 +18,15 @@
 #include <Adafruit_ADXL345_U.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include "qrcode.h"
+
+// ── WI-FI & BACKEND CONFIG (ACTION REQUIRED!) ─────────────────
+const char* WIFI_SSID     = "Test";
+const char* WIFI_PASSWORD = "12345678";
+const char* BACKEND_URL   = "https://electrical-machines.onrender.com/api/diagnose";
 
 // ── CONFIG ────────────────────────────────────────────────────
 // Your Vercel project name
@@ -80,7 +88,24 @@ void setup() {
     delay(1000);
   }
 
-  oledBoot("READY", 3);
+  // ── Connect to Wi-Fi ────────────────────────────────────────
+  display.clearDisplay();
+  display.setCursor(0, 10); display.println("Connecting to:");
+  display.setCursor(0, 24); display.println(WIFI_SSID);
+  display.display();
+  
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  int toggle = 0;
+  while (WiFi.status() != WL_CONNECTED) {
+    if (toggle) display.fillRect(100, 24, 8, 8, WHITE);
+    else display.fillRect(100, 24, 8, 8, BLACK);
+    display.display();
+    toggle = !toggle;
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nWi-Fi Connected!");
+  oledBoot("READY & ONLINE", 4);
   delay(1000);
   Serial.printf("URL base: https://%s/\n", VERCEL_DOMAIN);
 }
@@ -108,26 +133,39 @@ void loop() {
   Serial.printf("RMS=%.4f  Peak=%.4f  Crest=%.4f  Kurt=%.4f\n",
                  rms, peak, crest, kurt);
 
-  // ── ULTRA COMPRESSION (Hash Format) ────────────
-  // V3 holds exactly 53 characters. The YouTube URL was 43 chars.
-  // We use `#` and commas to mimic that tiny length exactly!
-  // Example: electrical-machines.vercel.app/#.8,1.2,2.4,5.8
-  auto compressVal = [](float v) -> String {
-    if (v > 9.9f) v = 9.9f;
-    int whole = (int)v;
-    int frac = (int)(v * 10 + 0.5f) % 10;
-    if (whole == 0) return String(".") + String(frac);
-    return String(whole) + "." + String(frac);
-  };
+  // ── POST Data to Backend ────────────────────────────────────
+  display.clearDisplay(); display.setTextColor(WHITE); display.setTextSize(1);
+  display.setCursor(0,25); display.println("uploading data...");
+  display.display();
 
-  String urlStr = String(VERCEL_DOMAIN) + "/#" + compressVal(rms) 
-                + "," + compressVal(peak) + "," + compressVal(crest) 
-                + "," + compressVal(kurt);
-                
-  Serial.printf("URL(%d chars): %s\n", urlStr.length(), urlStr.c_str());
+  if (WiFi.status() == WL_CONNECTED) {
+    WiFiClientSecure client;
+    client.setInsecure(); // Bypass SSL certificate validation for Render
+    
+    HTTPClient http;
+    http.setTimeout(30000); // Wait up to 30s for Render servers to wake up from sleep
+    http.begin(client, BACKEND_URL);
+    http.addHeader("Content-Type", "application/json");
+
+    // Manually construct JSON to avoid forcing the user to install ArduinoJson
+    String jsonPayload = "{\"rms\":" + String(rms, 4) +
+                         ",\"peak\":" + String(peak, 4) +
+                         ",\"crest_factor\":" + String(crest, 4) +
+                         ",\"kurtosis\":" + String(kurt, 4) + "}";
+                         
+    Serial.println("POSTing: " + jsonPayload);
+    int httpResponseCode = http.POST(jsonPayload);
+    Serial.printf("HTTP Response code: %d\n", httpResponseCode);
+    http.end();
+  } else {
+    Serial.println("Wi-Fi Disconnected!");
+  }
 
   // Phase 1: QR screen (QR_DISPLAY_SEC seconds)
-  showQR(urlStr.c_str());
+  // Because the ESP32 pushes the data directly over WiFi, the QR code
+  // now ONLY needs to hold the bare link to the dashboard!
+  // This ultra-short string easily fits in Version 2.
+  showQR(VERCEL_DOMAIN);
 
   // Phase 2: Numeric readings (5 seconds)
   showReadings(rms, peak, crest, kurt);
@@ -263,7 +301,10 @@ float computePeak() {
 }
 
 float computeCrestFactor(float rms, float peak) {
-  return (rms < 1e-6f) ? 1.0f : peak / rms;
+  // If RMS is at the hardware noise floor (e.g. motor is practically off), 
+  // return an ideal sine wave crest factor to prevent math explosions.
+  if (rms < 0.03f) return 1.414f; 
+  return peak / rms;
 }
 
 float computeKurtosis() {
@@ -277,5 +318,13 @@ float computeKurtosis() {
     var += d2; m4 += d2*d2;
   }
   var /= SAMPLE_COUNT; m4 /= SAMPLE_COUNT;
-  return (var < 1e-10f) ? 3.0f : m4/(var*var);
+  
+  // ── Noise Floor Gate ───────────────────────────────────────────
+  // A completely still sensor generates tiny electrical noise.
+  // 0.0001² is extremely small. Dividing m4 by ~zero causes 
+  // the Kurtosis to rocket up to 50+, tricking the ML model into
+  // thinking it's a critical fault. 
+  if (var < 0.001f) return 3.0f; 
+
+  return m4/(var*var);
 }

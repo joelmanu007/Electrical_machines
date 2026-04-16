@@ -76,16 +76,36 @@ async def diagnose(request: DiagnoseRequest):
 
         # Also get prediction probabilities for richer data
         proba = model.predict_proba(input_data)[0].tolist()
+        confidence = round(max(proba) * 100, 1)
 
-        return {
+        result = {
             "prediction": prediction_val,
             "status": status,
-            "confidence": round(max(proba) * 100, 1),
+            "confidence": confidence,
             "probabilities": {
                 "healthy": round(proba[0] * 100, 1),
                 "fault": round(proba[1] * 100, 1)
             }
         }
 
+        # Store in global memory for the IoT dashboard to fetch
+        ml_models["latest_reading"] = {
+            "rms": request.rms,
+            "peak": request.peak,
+            "crest_factor": request.crest_factor,
+            "kurtosis": request.kurtosis,
+            "status": status,
+            "confidence": confidence
+        }
+
+        return result
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Inference error: {str(e)}")
+
+@app.get("/api/latest")
+async def get_latest():
+    latest = ml_models.get("latest_reading")
+    if not latest:
+        raise HTTPException(status_code=404, detail="No recent sensor data available.")
+    return latest
