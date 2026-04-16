@@ -159,7 +159,7 @@ export default function App() {
             </nav>
             <div className="flex items-center gap-2">
               <button
-                onClick={runDiagnosis}
+                onClick={fetchLatestData}
                 disabled={isSyncing}
                 title="Quick Sync"
                 className="p-2 hover:bg-slate-800 transition-colors cursor-pointer active:scale-95 rounded text-cyan-400 disabled:opacity-40"
