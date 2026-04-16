@@ -4,15 +4,26 @@ const MAX_HISTORY = 50;
 
 export default function App() {
   // ── QR Code URL Parameter Parsing ──────────────────────────────
-  // When a user scans the ESP32-generated QR, the URL will contain:
-  // ?r=<rms>&p=<peak>&c=<crest>&k=<kurtosis>
+  // Support both classic query params and ultra-short hash format:
+  // Classic: ?r=<rms>&p=<p>&c=<c>&k=<k>
+  // Hash:    #<rms>,<p>,<c>,<k> (used for tiny QR codes)
   const _qp = new URLSearchParams(window.location.search);
-  const hasQRParams = _qp.has('r') && _qp.has('p') && _qp.has('c') && _qp.has('k');
+  const hashVal = window.location.hash.replace('#', '');
+  const hashParts = hashVal.split(',');
+  const hasQRParams = _qp.has('r') || hashParts.length >= 4;
 
-  const [rms, setRms] = useState(() => hasQRParams ? parseFloat(_qp.get('r')) : 0.84);
-  const [peak, setPeak] = useState(() => hasQRParams ? parseFloat(_qp.get('p')) : 1.25);
-  const [crest, setCrest] = useState(() => hasQRParams ? parseFloat(_qp.get('c')) : 2.4);
-  const [kurtosis, setKurtosis] = useState(() => hasQRParams ? parseFloat(_qp.get('k')) : 5.82);
+  const getVal = (idx, qpName, defaultVal) => {
+    if (hashParts.length >= 4 && hashParts[idx] && hashParts[idx] !== "") {
+      return parseFloat(hashParts[idx]);
+    }
+    if (_qp.has(qpName)) return parseFloat(_qp.get(qpName));
+    return defaultVal;
+  };
+
+  const [rms, setRms] = useState(() => getVal(0, 'r', 0.84));
+  const [peak, setPeak] = useState(() => getVal(1, 'p', 1.25));
+  const [crest, setCrest] = useState(() => getVal(2, 'c', 2.4));
+  const [kurtosis, setKurtosis] = useState(() => getVal(3, 'k', 5.82));
   const [status, setStatus] = useState("CRITICAL_FAULT");
   const [confidence, setConfidence] = useState(99.0);
   const [isSyncing, setIsSyncing] = useState(false);
